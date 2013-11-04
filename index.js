@@ -31,6 +31,14 @@ function Task() {
 util.inherits(Task, require('events').EventEmitter);
 
 function Vector(uri, callback) {
+    // since this needs to be called as a constructor to be used as a Source,
+    // cheat and use the fact that it's being called as a function to inject
+    // dependencies
+    if (!(this instanceof Vector)) {
+        tilelive = arguments[0];
+        return Vector;
+    }
+
     if (!uri.xml) return callback && callback(new Error('No xml'));
 
     this._uri = uri;
