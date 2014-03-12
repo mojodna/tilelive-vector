@@ -39,6 +39,8 @@ function Vector(uri, callback) {
     this._source = uri.source || undefined;
     this._deflate = typeof uri.deflate === 'boolean' ? uri.deflate : true;
     this._base = path.resolve(uri.base || __dirname);
+    this._width = uri.tileWidth | 0 || 256;
+    this._height = uri.tileHeight | 0 || 256;
 
     if (callback) this.once('open', callback);
 
@@ -67,7 +69,7 @@ Vector.prototype.update = function(opts, callback) {
     if (!opts.xml || this._xml === opts.xml) return callback();
 
     var s = this;
-    var map = new mapnik.Map(256,256);
+    var map = new mapnik.Map(s._width, s._height);
     map.fromString(opts.xml, {
         strict: true,
         base: this._base + '/'
@@ -157,13 +159,13 @@ Vector.prototype.getTile = function(z, x, y, callback) {
             try { return callback(null, vtile.toJSON(), headers); }
             catch(err) { return callback(err); }
         } else if (format === 'utf') {
-            var surface = new mapnik.Grid(256,256);
+            var surface = new mapnik.Grid(source._width, source._height);
             opts.layer = source._map.parameters.interactivity_layer;
             opts.fields = source._map.parameters.interactivity_fields.split(',');
         } else if (format === 'svg') {
-            var surface = new mapnik.CairoSurface('svg',256,256);
+            var surface = new mapnik.CairoSurface('svg', source._width, source._height);
         } else {
-            var surface = new mapnik.Image(256,256);
+            var surface = new mapnik.Image(source._width, source._height);
         }
         vtile.render(source._map, surface, opts, function(err, image) {
             if (err) return callback(err);
@@ -242,7 +244,7 @@ Vector.prototype.getInfo = function(callback) {
 
 Vector.prototype.profile = function(callback) {
     var s = this;
-    var map = new mapnik.Map(256,256);
+    var map = new mapnik.Map(s._width, s._height);
     var xmltime = Date.now();
     var densest = [];
 
