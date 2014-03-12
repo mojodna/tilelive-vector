@@ -77,10 +77,82 @@ Testsource.prototype.getInfo = function(callback) {
     return callback(null, this.data);
 };
 
+describe('init', function() {
+    it('should fail without backend', function(done) {
+        new Vector({ xml: xml.c }, function(err) {
+            assert.equal(err.message, 'No backend');
+            done();
+        });
+    });
+    it('should fail without xml', function(done) {
+        new Vector({ backend: new Testsource() }, function(err) {
+            assert.equal(err.message, 'No xml');
+            done();
+        });
+    });
+    it('should load with callback', function(done) {
+        new Vector({ backend: new Testsource(), xml: xml.a }, function(err, source) {
+            assert.ifError(err);
+            assert.ok(source);
+            done();
+        });
+    });
+    it('#open should call all listeners', function(done) {
+        var v = new Vector({ backend: new Testsource(), xml: xml.a });
+        var remaining = 3;
+        for (var i = 0; i < remaining; i++) v.open(function(err, source) {
+            assert.ifError(err);
+            assert.ok(source);
+            if (!--remaining) done();
+        });
+    });
+    it('should get info', function(done) {
+        new Vector({ backend: new Testsource(), xml: xml.a }, function(err, source) {
+            assert.ifError(err);
+            assert.ok(source);
+            source.getInfo(function(err, info) {
+                assert.ifError(err);
+                assert.equal('test-a', info.name);
+                assert.equal(0, info.minzoom);
+                assert.equal(8, info.maxzoom);
+                assert.deepEqual([0,0,2], info.center);
+                assert.deepEqual([-180,-85.0511,180,85.0511], info.bounds);
+                assert.deepEqual({"level2":"property"}, info.level1, 'JSON key stores deep attribute data');
+                assert.deepEqual(1, info.scale, 'JSON key does not overwrite other params');
+                done();
+            });
+        });
+    });
+    it('should update xml, backend', function(done) {
+        new Vector({xml:xml.a}, function(err, source) {
+            assert.ifError(err);
+            source.getInfo(function(err, info) {
+                assert.ifError(err);
+                assert.equal('test-a', info.name);
+                source.update({xml:xml.b}, function(err) {
+                    assert.ifError(err);
+                    source.getInfo(function(err, info) {
+                        assert.ifError(err);
+                        assert.equal('test-b', info.name);
+                        done();
+                    });
+                });
+            });
+        });
+    });
+    it('should use fallback backend', function(done) {
+        new Vector({ source:'test:///a', xml: xml.c }, function(err, source) {
+            assert.ifError(err);
+            assert.ok(source);
+            done();
+        });
+    });
+});
 
 describe('tiles', function() {
     var sources = {
         a: new Vector({ backend: new Testsource('a'), xml: xml.a }),
+        'a@vt': new Vector({ backend: new Vector.Backend('test:///a'), xml: xml.a }),
         b: new Vector({ backend: new Testsource('b'), xml: xml.b }),
         'b@2x': new Vector({ backend: new Testsource('b'), xml: xml.b }),
         c: new Vector({ backend: new Testsource('b'), xml: xml.b, scale:2 }),
@@ -94,6 +166,7 @@ describe('tiles', function() {
         // 1.1.2, 1.1.3 test that solid bg tiles are generated even when no
         // backend tile exists.
         a: ['0.0.0', '1.0.0', '1.0.1', '1.1.0', '1.1.1', '1.1.2', '1.1.3', '2.0.0', '2.0.1'],
+        'a@vt': ['0.0.0', '1.0.0', '1.0.1', '1.1.0', '1.1.1', '1.1.2', '1.1.3', '2.0.0', '2.0.1'],
         // 2.1.1 should use z2 vector tile -- a coastline shapefile
         // 2.1.2 should use maskLevel -- place dots, like the others
         b: ['0.0.0', '1.0.0', '1.0.1', '1.1.0', '1.1.1', '2.1.1', '2.1.2'],
@@ -150,7 +223,7 @@ describe('tiles', function() {
                     assert.equal('number', typeof buffer._drawtime);
                     // fs.writeFileSync(__dirname + '/expected/' + source + '.' + key + '.png', buffer);
                     imageEqualsFile(buffer, __dirname + '/expected/' + source + '.' + key + '.png', function(err) {
-                        //assert.ifError(err);
+                        assert.ifError(err);
                         if (!--remaining) done();
                     });
                 };
@@ -214,7 +287,7 @@ describe('tiles', function() {
     });
     it('errors out on bad protobuf', function(done) {
         sources.a.getTile(1, 0, 3, function(err) {
-            assert.equal('could not parse protobuf', err.message);
+            assert.equal('could not parse buffer as protobuf', err.message);
             done();
         });
     });
